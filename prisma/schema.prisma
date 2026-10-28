@@ -1,0 +1,51 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+
+model User {
+  id       String    @id @default(uuid()) @db.Char(36) // Menggunakan UUID sebagai primary key
+  email    String    @unique @db.VarChar(200)          // Email unik, bukan primary key
+  username String    @unique @db.VarChar(100)          // Username unik
+  password String    @db.VarChar(100)
+  name     String    @db.VarChar(100)
+  token    String?   @db.VarChar(100)
+  products Product[]
+
+  @@map("Users")
+}
+
+model Product {
+  id           Int    @id @default(autoincrement())
+  cover        String @db.VarChar(200)
+  judul_buku   String @db.VarChar(100)
+  nama_penulis String @db.VarChar(100)
+  deskripsi    String @db.Text
+  harga        String @db.VarChar(10)
+  userId       String @db.Char(36)        // Menyimpan UUID dari tabel User
+  user         User   @relation(fields: [userId], references: [id]) // Mengacu pada id (UUID) di tabel User
+
+  @@map("Products")
+}
+
+model Product_test {
+  id           Int    @id @default(autoincrement())
+  cover        String @db.VarChar(200)
+  judul_buku   String @db.VarChar(100)
+  nama_penulis String @db.VarChar(100)
+  deskripsi    String @db.Text
+  harga        String @db.VarChar(10)
+
+  @@map("Products_test")
+}
