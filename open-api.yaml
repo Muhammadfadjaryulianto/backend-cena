@@ -1,0 +1,681 @@
+openapi: 3.0.3
+
+info:
+  title: Book Store API
+  description: |
+    REST API untuk aplikasi Book Store.
+    API menyediakan autentikasi pengguna dan pengelolaan data buku.
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:3000
+    description: Local development server
+
+tags:
+  - name: User
+    description: Registrasi, autentikasi, dan pengelolaan akun pengguna.
+  - name: Product
+    description: Pengelolaan data buku dan cover.
+
+paths:
+  /api/users:
+    post:
+      tags:
+        - User
+      summary: Register user
+      description: Membuat akun pengguna baru.
+      operationId: registerUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterUserRequest"
+            example:
+              name: Muhammad Fadjar Yulianto
+              email: sohibul@gmail.com
+              username: sohibul
+              password: Sohibul_2807
+      responses:
+        "201":
+          description: Registrasi berhasil.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/User"
+              example:
+                data:
+                  id: "f98f54e8-dffe-4fe6-b2fb-2ddd9bbf5d95"
+                  email: sohibul@gmail.com
+                  username: sohibul
+                  name: Muhammad Fadjar Yulianto
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "409":
+          description: Email atau username sudah terdaftar.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                errors: username or email already registered
+
+  /api/users/login:
+    post:
+      tags:
+        - User
+      summary: Login user
+      description: |
+        Login menggunakan email atau username.
+        Kirim salah satu identitas tersebut bersama password.
+      operationId: loginUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - email
+                    - password
+                  properties:
+                    email:
+                      type: string
+                      format: email
+                      example: sohibul@gmail.com
+                    password:
+                      type: string
+                      format: password
+                      example: Sohibul_2807
+                - type: object
+                  required:
+                    - username
+                    - password
+                  properties:
+                    username:
+                      type: string
+                      example: sohibul
+                    password:
+                      type: string
+                      format: password
+                      example: Sohibul_2807
+            examples:
+              loginWithEmail:
+                summary: Login menggunakan email
+                value:
+                  email: sohibul@gmail.com
+                  password: Sohibul_2807
+              loginWithUsername:
+                summary: Login menggunakan username
+                value:
+                  username: sohibul
+                  password: Sohibul_2807
+      responses:
+        "200":
+          description: Login berhasil.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      token:
+                        type: string
+                        description: Token autentikasi pengguna.
+              example:
+                data:
+                  token: unique-token
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          description: Kredensial salah.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                errors: username or password wrong
+
+  /api/users/current:
+    get:
+      tags:
+        - User
+      summary: Get current user
+      description: Mengambil informasi pengguna yang sedang login.
+      operationId: getCurrentUser
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Data pengguna berhasil diambil.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/User"
+              example:
+                data:
+                  email: sohibul@gmail.com
+                  username: sohibul
+                  name: Muhammad Fadjar Yulianto
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+    patch:
+      tags:
+        - User
+      summary: Update current user
+      description: |
+        Memperbarui informasi pengguna yang sedang login.
+        Field bersifat opsional sehingga pengguna dapat memperbarui
+        sebagian informasi saja.
+      operationId: updateCurrentUser
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateUserRequest"
+            example:
+              username: sohibulNew
+              name: Muhammad Fadjar Yulianto New
+              password: Sohibul_2807_new
+      responses:
+        "200":
+          description: Data pengguna berhasil diperbarui.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/User"
+              example:
+                data:
+                  email: sohibul@gmail.com
+                  username: sohibulNew
+                  name: Muhammad Fadjar Yulianto New
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "409":
+          description: Email atau username sudah digunakan.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/users/logout:
+    delete:
+      tags:
+        - User
+      summary: Logout user
+      description: Menghapus atau menonaktifkan token autentikasi pengguna.
+      operationId: logoutUser
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Logout berhasil.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: string
+              example:
+                data: ok
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/products:
+    post:
+      tags:
+        - Product
+      summary: Create product
+      description: |
+        Membuat data buku baru.
+        Cover dikirim sebagai file menggunakan multipart/form-data.
+        Cover bersifat opsional.
+      operationId: createProduct
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: "#/components/schemas/ProductForm"
+            encoding:
+              cover:
+                contentType: image/jpeg, image/png, image/webp
+            example:
+              judul_buku: Belajar Node.js
+              nama_penulis: John Doe
+              deskripsi: Buku belajar Node.js
+              harga: "70000"
+      responses:
+        "201":
+          description: Produk berhasil dibuat.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/Product"
+              example:
+                data:
+                  id: 1
+                  cover: http://localhost:3000/api/cover/cover_uuid.jpg
+                  judul_buku: Belajar Node.js
+                  nama_penulis: John Doe
+                  deskripsi: Buku belajar Node.js
+                  harga: "70000"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "413":
+          description: Ukuran file melebihi batas 2 MB.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+    get:
+      tags:
+        - Product
+      summary: Search products
+      description: |
+        Mengambil daftar produk milik pengguna yang sedang login.
+        Mendukung pencarian berdasarkan judul, penulis, harga,
+        serta pagination.
+      operationId: searchProducts
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: judul
+          in: query
+          required: false
+          description: Pencarian berdasarkan judul buku (partial match).
+          schema:
+            type: string
+          example: node
+        - name: penulis
+          in: query
+          required: false
+          description: Pencarian berdasarkan nama penulis (partial match).
+          schema:
+            type: string
+          example: john
+        - name: harga
+          in: query
+          required: false
+          description: Pencarian berdasarkan harga.
+          schema:
+            type: string
+          example: "70000"
+        - name: page
+          in: query
+          required: false
+          description: Nomor halaman.
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+          example: 1
+        - name: size
+          in: query
+          required: false
+          description: Jumlah produk per halaman.
+          schema:
+            type: integer
+            minimum: 1
+            default: 10
+          example: 10
+      responses:
+        "200":
+          description: Daftar produk berhasil diambil.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProductListResponse"
+              example:
+                data:
+                  - id: 1
+                    cover: http://localhost:3000/api/cover/cover_1.jpg
+                    judul_buku: Belajar Node.js
+                    nama_penulis: John Doe
+                    deskripsi: Buku belajar Node.js
+                    harga: "70000"
+                  - id: 2
+                    cover: http://localhost:3000/api/cover/cover_2.jpg
+                    judul_buku: Belajar Express.js
+                    nama_penulis: Jane Doe
+                    deskripsi: Buku belajar Express.js
+                    harga: "80000"
+                paging:
+                  page: 1
+                  total_page: 3
+                  total_item: 30
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/products/{productId}:
+    parameters:
+      - name: productId
+        in: path
+        required: true
+        description: ID produk.
+        schema:
+          type: integer
+          minimum: 1
+        example: 1
+
+    get:
+      tags:
+        - Product
+      summary: Get product
+      description: Mengambil detail produk berdasarkan ID.
+      operationId: getProduct
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Detail produk berhasil diambil.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/Product"
+              example:
+                data:
+                  id: 1
+                  cover: http://localhost:3000/api/cover/cover_uuid.jpg
+                  judul_buku: Belajar Node.js
+                  nama_penulis: John Doe
+                  deskripsi: Buku belajar Node.js
+                  harga: "70000"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFoundProduct"
+
+    put:
+      tags:
+        - Product
+      summary: Update product
+      description: |
+        Memperbarui data buku berdasarkan ID.
+        Jika cover tidak dikirim, cover lama tetap digunakan.
+        Jika cover baru dikirim, cover lama dibersihkan setelah
+        pembaruan database berhasil.
+      operationId: updateProduct
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: "#/components/schemas/ProductForm"
+            encoding:
+              cover:
+                contentType: image/jpeg, image/png, image/webp
+      responses:
+        "200":
+          description: Produk berhasil diperbarui.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/Product"
+              example:
+                data:
+                  id: 1
+                  cover: http://localhost:3000/api/cover/new_cover_uuid.jpg
+                  judul_buku: Belajar Node.js Updated
+                  nama_penulis: John Doe
+                  deskripsi: Buku Node.js versi terbaru
+                  harga: "80000"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFoundProduct"
+        "413":
+          description: Ukuran file melebihi batas 2 MB.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+    delete:
+      tags:
+        - Product
+      summary: Remove product
+      description: |
+        Menghapus produk berdasarkan ID.
+        File cover terkait juga dibersihkan setelah produk
+        berhasil dihapus dari database.
+      operationId: removeProduct
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Produk berhasil dihapus.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      message:
+                        type: string
+              example:
+                data:
+                  message: product deleted successfully
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFoundProduct"
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      description: Masukkan token autentikasi yang diperoleh dari Login User API.
+
+  schemas:
+    RegisterUserRequest:
+      type: object
+      required:
+        - name
+        - email
+        - username
+        - password
+      properties:
+        name:
+          type: string
+          maxLength: 100
+          example: Muhammad Fadjar Yulianto
+        email:
+          type: string
+          format: email
+          example: sohibul@gmail.com
+        username:
+          type: string
+          example: sohibul
+        password:
+          type: string
+          format: password
+          example: Sohibul_2807
+
+    UpdateUserRequest:
+      type: object
+      minProperties: 1
+      properties:
+        name:
+          type: string
+          maxLength: 100
+          example: Muhammad Fadjar Yulianto New
+        username:
+          type: string
+          example: sohibulNew
+        password:
+          type: string
+          format: password
+          example: Sohibul_2807_new
+
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "f98f54e8-dffe-4fe6-b2fb-2ddd9bbf5d95"
+        email:
+          type: string
+          format: email
+          example: sohibul@gmail.com
+        username:
+          type: string
+          example: sohibul
+        name:
+          type: string
+          example: Muhammad Fadjar Yulianto
+
+    ProductForm:
+      type: object
+      required:
+        - judul_buku
+        - nama_penulis
+        - harga
+      properties:
+        judul_buku:
+          type: string
+          maxLength: 100
+          example: Belajar Node.js
+        nama_penulis:
+          type: string
+          maxLength: 100
+          example: John Doe
+        deskripsi:
+          type: string
+          nullable: true
+          example: Buku belajar Node.js
+        harga:
+          type: string
+          maxLength: 10
+          example: "70000"
+        cover:
+          type: string
+          format: binary
+          description: |
+            File gambar cover. Format yang didukung JPEG, PNG, dan WebP.
+            Maksimal ukuran file 2 MB. Opsional.
+
+    Product:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        cover:
+          type: string
+          nullable: true
+          format: uri
+          example: http://localhost:3000/api/cover/cover_uuid.jpg
+        judul_buku:
+          type: string
+          example: Belajar Node.js
+        nama_penulis:
+          type: string
+          example: John Doe
+        deskripsi:
+          type: string
+          nullable: true
+          example: Buku belajar Node.js
+        harga:
+          type: string
+          example: "70000"
+
+    ProductListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Product"
+        paging:
+          type: object
+          properties:
+            page:
+              type: integer
+              example: 1
+            total_page:
+              type: integer
+              example: 3
+            total_item:
+              type: integer
+              example: 30
+
+    ErrorResponse:
+      type: object
+      properties:
+        errors:
+          type: string
+          example: Invalid request
+
+  responses:
+    BadRequest:
+      description: Request tidak valid atau gagal divalidasi.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            errors: Invalid request
+
+    Unauthorized:
+      description: Token tidak tersedia atau tidak valid.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            errors: Unauthorized
+
+    NotFoundProduct:
+      description: Produk tidak ditemukan atau bukan milik pengguna.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            errors: product is not found
